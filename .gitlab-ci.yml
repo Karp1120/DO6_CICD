@@ -1,0 +1,40 @@
+stages:
+  - build
+  - format
+  - test
+  - deploy
+
+build_code_samples:
+  stage: build
+  tags: ["shell"]
+  script:
+    - make -C code-samples
+    - cp ./code-samples/DO ./data-samples/DO
+  artifacts:
+    paths:
+      - data-samples/
+    expire_in: 30 days
+
+
+clang_format:
+  stage: format
+  tags: ["shell"]
+  script:
+    - cd code-samples
+    - clang-format -n --Werror --verbose main.c
+  allow_failure: false
+
+
+
+test_integration:
+  stage: test
+  tags: ["shell"]
+  needs: ["build_code_samples", "clang_format"]
+  script:
+    - bash code-samples/test_1.sh
+  allow_failure: false
+
+deploy:
+  stage: deploy
+  script:
+    - bash deploy.sh
