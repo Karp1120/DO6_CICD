@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-ARTIFACT=DO
+ARTIFACT=code-samples/DO
 TARGET_DIR="/usr/local/bin"
 VM2_IP="192.168.56.102"
 DEPLOY_USER="deploy"
