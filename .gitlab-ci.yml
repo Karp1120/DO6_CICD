@@ -39,7 +39,6 @@ deploy:
   tags: ["shell"]
   needs: ["build_code_samples", "clang_format","test_integration"]
   script:
-    - chmod +x deploy.sh
     - bash deploy.sh
   when: manual
   allow_failure: false
