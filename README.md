@@ -1,236 +1,194 @@
 # Basic CI/CD
 
-Development of a simple **CI/CD** for the C project. Building, testing, deployment.
+Этот репозиторий содержит учебный проект по разработке простого **CI/CD-пайплайна** для проекта на C.  
+В рамках работы был настроен **gitlab-runner**, реализованы этапы сборки, проверки кодстайла, интеграционного тестирования и деплоя приложения на отдельную виртуальную машину.
+
+Цель проекта — на практике понять, как устроен базовый CI/CD-процесс: от автоматической сборки и тестов до ручного деплоя готового приложения на удалённый сервер.
+
+## О проекте
+
+Во время выполнения проекта я последовательно собрал базовый pipeline для C-проекта.  
+Сначала была подготовлена виртуальная машина и установлен `gitlab-runner`, затем в `.gitlab-ci.yml` были добавлены этапы сборки, проверки стиля кода и интеграционного тестирования. После этого был реализован этап деплоя на отдельную виртуальную машину через `ssh` и `scp`.
+
+Проект помог понять, как автоматизировать типовые действия, которые при ручном выполнении занимают время и легко приводят к ошибкам.
+
+## Что было сделано
+
+### Part 1. Настройка gitlab-runner
+- Поднята виртуальная машина с **Ubuntu Server 22.04 LTS**.
+- Установлен и запущен **gitlab-runner**.
+- Runner зарегистрирован для использования в текущем проекте.
+- Выполнена привязка раннера к GitLab-проекту через URL и registration token.
+
+Примеры команд:
+`sudo apt update`  
+`sudo apt install gitlab-runner`  
+`sudo gitlab-runner start`  
+`sudo gitlab-runner register`  
+`sudo gitlab-runner status`
+
+### Part 2. Сборка
+- В файл `.gitlab-ci.yml` добавлен этап **build**.
+- Настроен запуск сборки через `make`.
+- После успешной сборки сохранены артефакты.
+- Для артефактов задан срок хранения **30 дней**.
+- Подготовлены исполняемые файлы для следующих этапов pipeline.
+
+Примеры команд:
+`make s21_cat`  
+`make s21_grep`  
+`make all`
+
+Пример логики этапа:
+- запуск `make`;
+- сохранение бинарных файлов в artifacts;
+- передача артефактов на следующие стадии.
+
+### Part 3. Тест кодстайла
+- В pipeline добавлен отдельный этап проверки кодстайла.
+- Использована утилита **clang-format**.
+- Проверка выполняется автоматически.
+- Если код не соответствует стилю, pipeline завершается с ошибкой.
+- В логах pipeline выводится результат проверки.
+
+Примеры команд:
+`clang-format -n src/cat/*.c src/cat/*.h src/grep/*.c src/grep/*.h`  
+`clang-format -style=Google -n *.c *.h`
+
+Обычно на этом этапе проверялось:
+- форматирование исходников;
+- единый стиль оформления;
+- корректное падение pipeline при ошибках.
+
+### Part 4. Интеграционные тесты
+- В `.gitlab-ci.yml` добавлен этап **test**.
+- Настроен запуск интеграционных тестов после успешной сборки и кодстайла.
+- Тесты проверяют работу собранного приложения на разных наборах аргументов.
+- При провале любого теста pipeline завершается с ошибкой.
+- В логах отображается результат прохождения тестов.
+
+Примеры команд:
+`bash tests/test_cat.sh`  
+`bash tests/test_grep.sh`  
+`python3 tests/tester.py`
+
+Обычно проверялось:
+- корректность запуска программы;
+- совпадение результата с системными `cat` и `grep`;
+- работа с разными флагами и аргументами.
+
+### Part 5. Этап деплоя
+- Поднята вторая виртуальная машина с **Ubuntu Server 22.04 LTS**.
+- Реализован этап **deploy**, который запускается вручную.
+- Настроен перенос артефактов с CI-машины на продакшн-машину через `scp`.
+- Использован `ssh` для удалённого размещения бинарников в `/usr/local/bin`.
+- Деплой выполняется только после успешного прохождения всех предыдущих этапов.
+- При ошибке копирования или подключения pipeline завершается с ошибкой.
+
+Примеры команд:
+`scp s21_cat s21_grep user@192.168.1.10:/tmp/`  
+`ssh user@192.168.1.10 'sudo mv /tmp/s21_cat /usr/local/bin/'`  
+`ssh user@192.168.1.10 'sudo mv /tmp/s21_grep /usr/local/bin/'`  
+`ssh user@192.168.1.10 'ls -l /usr/local/bin/'`
+
+Обычно на этом этапе использовались:
+- `ssh` для удалённого выполнения команд;
+- `scp` для копирования файлов;
+- отдельный bash-скрипт для деплоя;
+- ручной запуск job в GitLab.
+
+### Part 6. Дополнительно. Уведомления
+- Настроены уведомления о результате pipeline через Telegram-бота.
+- Сообщения отправляются при успешном или неуспешном выполнении этапов.
+- В уведомлении содержится информация о статусе:
+  - CI,
+  - CD.
+- Имя бота оформлено в формате `nickname DO6 CI/CD`.
 
-💡 [Tap here](https://new.oprosso.net/p/4cb31ec3f47a4596bc758ea1861fb624) **to leave your feedback on the project**. It's anonymous and will help our team make your educational experience better. We recommend completing the survey immediately after the project.
+Примеры команд:
+`curl -s -X POST https://api.telegram.org/bot<TOKEN>/sendMessage -d chat_id=<CHAT_ID> -d text="Pipeline passed"`  
+`curl -s -X POST https://api.telegram.org/bot<TOKEN>/sendMessage -d chat_id=<CHAT_ID> -d text="Pipeline failed"`
 
-## Contents
+## Что я изучил
 
-1. [Chapter I](#chapter-i)
-2. [Chapter II](#chapter-ii) \
-    2.1. [CI/CD basics](#ci-cd-basics)  
-    2.2. [CI basics](#ci-basics)  
-    2.3. [CD basics](#cd-basics)
-3. [Chapter III](#chapter-iii) \
-    3.1. [Setting up the gitlab-runner](#part-1-setting-up-the-gitlab-runner)  
-    3.2. [Building](#part-2-building)  
-    3.3. [Codestyle test](#part-3-codestyle-test)   
-    3.4. [Integration tests](#part-4-integration-tests)  
-    3.5. [Deployment stage](#part-5-deployment-stage)  
-    3.6. [Bonus. Notifications](#part-6-bonus-notifications)  
-4. [Chapter IV](#chapter-iv)
+Во время выполнения проекта я закрепил и отработал следующие навыки:
 
+- базовое понимание принципов **CI/CD**;
+- установка и регистрация **gitlab-runner**;
+- написание `.gitlab-ci.yml`;
+- разбиение pipeline на стадии;
+- автоматическая сборка проекта через `make`;
+- работа с артефактами в GitLab CI;
+- автоматическая проверка кодстайла;
+- запуск интеграционных тестов в pipeline;
+- настройка зависимостей между этапами;
+- ручной запуск deploy-этапа;
+- перенос файлов на удалённую машину через `ssh` и `scp`;
+- базовая автоматизация развёртывания;
+- настройка уведомлений о статусе pipeline.
 
-## Chapter I
+## Использованные инструменты
 
-![basic_ci_cd](misc/images/basic_ci_cd.JPG)
+В ходе работы использовались:
+- Ubuntu Server 22.04 LTS
+- GitLab CI/CD
+- gitlab-runner
+- Make / Makefile
+- clang-format
+- Bash
+- ssh
+- scp
+- Telegram Bot API
 
-Planet Earth, ASI office, today.
+## Что полезно быстро повторить перед защитой
 
-After arriving at the Port of London, you have had a few days to settle in and explore the city, and then comes the day you have to go to your new job.
+### Что такое CI
+**CI (Continuous Integration)** — это автоматическая проверка изменений в коде: сборка, тесты, кодстайл и другие проверки после коммита.
 
-Today you arrive in a taxi at the door of the office of the company that brought you to Albion.
-In the letter you received the day you arrived, you were given the door code and your office number.
-Surprised by the empty corridors and the deathly silence, you descend a few floors to find your workstation.
+### Что такое CD
+**CD (Continuous Delivery / Deployment)** — это автоматизация доставки и развёртывания приложения после успешного прохождения CI.
 
-There you find a recently switched on computer and an intercom in a poor state of repair.
-As you enter and close the door behind you, a robotic voice comes out.
+### Зачем нужен gitlab-runner
+`gitlab-runner` — это агент, который получает задачи из GitLab и выполняет job'ы pipeline на конкретной машине.
 
-"Welcome to the ASI lab's computerised experimental center. The analysis of your body's characteristics has been completed. We are ready to start."
+### Зачем нужны artifacts
+Artifacts позволяют сохранить результаты сборки и передать их в следующие этапы pipeline.
 
-"You will be assisting with one of our experimental center projects. Your first task will be to create a **CI/CD** for the well-known **cat** and **grep** utilities."
+### Почему deploy лучше делать вручную
+Ручной deploy безопаснее, потому что позволяет сначала убедиться, что сборка и тесты действительно прошли корректно, а уже потом переносить приложение на целевую машину.
 
-Before you begin, we would like to remind you that although learning through play is the main principle of the Experimental Centre, we cannot guarantee the absence of injury and trauma. For your own safety and the safety of others, please refrain from touching *bzzz* anything at all."
+## Команды, которые стоит помнить
 
+Установка и настройка runner:
+`sudo apt install gitlab-runner`  
+`sudo gitlab-runner register`  
+`sudo gitlab-runner status`
 
-## Chapter II
+Проверка сборки:
+`make`  
+`make s21_cat`  
+`make s21_grep`
 
-"Your first task requires some explanation. Let me give you a brief introduction."
+Проверка кодстайла:
+`clang-format -n *.c *.h`
 
-*You could make out the most basic information from the speech that followed, as it felt accelerated by five.*
+Запуск тестов:
+`bash tests/test_cat.sh`  
+`bash tests/test_grep.sh`
 
-### **CI/CD** basics
+Копирование файлов на удалённую машину:
+`scp file user@host:/path/`
 
-Sadly... If something is always done "manually", it will either work poorly or not work at all.
+Удалённое выполнение команды:
+`ssh user@host 'command'`
 
-**CI/CD** is a set of principles and practices that enable more frequent and secure deployment of software changes.
+Проверка результата деплоя:
+`which s21_cat`  
+`which s21_grep`  
+`ls -l /usr/local/bin/`
 
-Reasons for using **CI/CD**:
-- Team development;
-- Long software life cycle;
-- Shortened release cycle;
-- Difficulties in deployment and testing of large systems;
-- Human factor.
+## Итог
 
-**CI/CD** pipeline is a sequence of actions (scripts) for a particular version of the code in the repository, which is started automatically when changes are made.
+В результате выполнения проекта был настроен полноценный базовый CI/CD-пайплайн для C-приложения: от автоматической сборки и проверки кодстайла до интеграционных тестов и деплоя на отдельную виртуальную машину.
 
-### **CI** basics
-
-**CI** (Continuous Integration) refers to the integration of individual pieces of application code with each other.
-**CI** normally performs two tasks as described below.
-
-- BUILD:
-    - Checking if the code is being built at all;
-    - Prepare the artifacts for the next stages;
-- TEST:
-    - Codestyle tests;
-    - Unit tests;
-    - Integration tests;
-    - Other tests you have;
-    - Test reports.
-
-### **CD** basics
-
-**CD** (Continuous Delivery) is a continuous integration extension, as it automatically deploys all code changes to the test and/or production environment after the build stage.
-**CD** can perform the following tasks.
-
-- PUBLISH (If using a deployment docker):
-    - Build container images;
-    - Push the images to where they will be taken from for deployment;
-- UPDATE CONFIGS:
-    - Update configuration on the machines;
-- DEPLOY STAGING:
-    - Deployment of test environment for manual tests, QA, and other non-automated checks;
-    - Can be run manually or automatically if CI stages are passed successfully;
-- DEPLOY PRODUCTION:
-    - Deploying a new version of the system on "production";
-    - This stage better be run manually rather than automatically;
-    - If you want, you can set it up for a specific branch of the repository only (master, release, etc.).
-
-"There you go. If you have any questions, run what I said slowly through your head. I'll be right back."
-
-
-## Chapter III
-
-As a result of the work you must save two dumps of the virtual machine images described below. \
-**P.S. Do not upload dumps to git under any circumstances!**
-
-### Part 1. Setting up the **gitlab-runner**
-
-"Since you have decided to do CI/CD, you must really, really like testing. I love it too. So let's get started."
-If you need any information, I recommend looking for answers in the official documentation.
-
-**== Task ==**
-
-##### Start *Ubuntu Server 22.04 LTS* virtual machine.
-*Be prepared to save a dump of the virtual machine image at the end of the project.*
-
-##### Download and install **gitlab-runner** on the virtual machine.
-
-##### Run **gitlab-runner** and register it for use in the current project (*DO6_CICD*).
-- You will need a URL and a token for runner registration, that can be obtained from the task page on the platform.
-
-### Part 2. Building
-
-"The previous test was designed to boost people's self-confidence."
-Now I have readjusted the tests, making them more difficult and less flattering.
-
-**== Task ==**
-
-Write a stage for **CI** to build applications from the *SimpleBashUtils* project.
-
-n the _.gitlab-ci.yml_ file, add a stage to start the building via makefile from the _SimpleBashUtils_ project.
-
-Save post-build files (artifacts) to a random directory with a 30-day retention period.
-
-**== If the project *SimpleBashUtils* is not fulfilled  ==**
-
-
-Write a stage for **CI** to build *DO* application from the code-samples folder.
-
-In the _.gitlab-ci.yml_ file, add a stage to start the building via makefile from the code-samples folder.
-
-Save post-build files (artifacts) to a random directory with a 30-day retention period.
-
-
-### Part 3. Codestyle test
-
-"Congratulations, you've accomplished a completely pointless task. Just kidding. It was necessary for moving on to all the following ones."
-
-**== Task ==**
-
-#### Write a stage for **CI** that runs a codestyle script (*clang-format*).
-
-##### If the codefile didn't pass, "fail" the pipeline.
-
-##### In the pipeline, display the output of the *clang-format* utility.
-
-### Part 4. Integration tests
-
-"Great, the codestyle test is written. [WHISPERING] I'm talking to you in private. Don't tell anything to your colleagues. Between you and me, you're doing very well. [LOUDLY] Let's move on to writing integration tests."
-
-**== Task ==**
-
-#### Write a stage for **CI** that runs integration tests.
-
-##### For the *SimpleBashUtils* project, you can take your already written integration tests.
-
-##### For the project from the code-samples folder, write integration tests yourself. The tests can be written in any language (c, bash, python, etc.) and should call the built application to check its validity on different cases.
-
-##### Run this stage automatically only if the build and codestyle test passes successfully.
-
-##### If tests didn't pass, "fail" the pipeline.
-
-##### In the pipeline, display the output of the succeeded / failed integration tests.
-
-### Part 5. Deployment stage
-
-"To complete this task, you must move the executable files to another virtual machine, which will play the role of a production. Good luck."
-
-**== Task ==**
-
-##### Start the second virtual machine *Ubuntu Server 22.04 LTS*.
-
-#### Write a stage for **CD** that "deploys" the project on another virtual machine.
-
-##### Run this stage manually, if all the previous stages have passed successfully.
-
-##### Write a bash script which copies the files received after the building (artifacts) into the */usr/local/bin* directory of the second virtual machine using **ssh** and **scp**.
-
-*Here the knowledge gained from the DO2_LinuxNetwork project can help you.*
-
-- Be prepared to explain from the script how the relocation occurs.
-
-##### In the _.gitlab-ci.yml_ file, add a stage to run the script you have written.
-
-##### In case of an error, fail the pipeline.
-
-As a result, you should get a ready-to-use application from the *SimpleBashUtils* project (*cat* and *grep*) or an application from the code-samples folder (*DO*) on the second virtual machine (depending on what you did).
-
-##### Save dumps of virtual machine images.
-**P.S. Do not upload dumps to git under any circumstances!**
-- Don't forget to run the pipeline with the last commit in the repository.
-
-### Part 6. Bonus. Notifications
-
-"It says that your next task is for Nobel laureates specially. It does not say what they won the prize for, but certainly not for their ability to work with **gitlab-runner**."
-
-**== Task ==**
-
-#### Set up notifications of successful/unsuccessful pipeline execution via bot named "[your nickname] DO6 CI/CD" in *Telegram*.
-- The text of the notification must contain information on the successful passing of both **CI** and **CD** stages.
-- The rest of the notification text may be arbitrary.
-
-## Chapter IV
-
-"Good. After completing a series of tasks, the employee should go to the break room."
-
-While you have a free moment in the break room you decide to check your mail, thinking about the weirdness of what is going on.
-
-
-Just before you take out your phone, another person enters the break room.
-
-"Hi! I haven't seen you here before."
-
-"That would be weird if you had. It's my first day here, huh."
-
-"Oh, first day! So, what do you think of our 'boss'?" the last words were spoken with an obvious grin.
-
-"That was the boss? Phew, I'm not the only one who thinks he's weird... and a bit rude? I thought you were all like that in England."
-
-"Haha, definitely not, mate. It's just a prank on the newbies, but don't worry everything will be fine tomorrow. By the way, here comes the real boss, looks like he's coming your way. Well, good luck, see you later."
-
-The stranger quickly disappeared and a short man in an expensive suit, slightly balding, in his early fifties or sixties, entered the room. Without waiting for you to speak, he said with a subtle, almost imperceptible smile:
-
-"Oh, you must be Thomas. A truly magnificent performance on the test piece. I hope you weren't intimidated by our dear friend ASI Junior, she spoke very highly of you. So, let me tell you more about what we do here in general and what your role is in our company..."
-
+Проект помог лучше понять, как в реальной разработке автоматизируются рутинные этапы работы с кодом, и дал практическую базу для дальнейшего изучения DevOps, CI/CD и сопровождения приложений.
